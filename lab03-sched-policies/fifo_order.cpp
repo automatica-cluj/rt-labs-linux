@@ -52,7 +52,7 @@ int main(int argc, char** argv) {
     lab::report(w);
 
     if (prio > 0) {
-        const bool ordered = lab::order_by(w, &lab::Worker::finish_ns) == "H M L";
+        const bool ordered = lab::finish_order(w) == "H M L";
         std::printf("result: %s, %s\n",
                     ordered ? "finished in priority order" : "NOT in priority order",
                     lab::parallel(w)      ? "workers ran in parallel"

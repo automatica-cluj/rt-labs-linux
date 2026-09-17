@@ -42,7 +42,9 @@ memory locking, creating real-time threads, CPU pinning, absolute sleeps and
 priority-inheritance mutexes. Read it once. Lab 0 shows the same steps written
 out in full.
 
-[docs/](docs/) has a concepts reference and a scheduling policies guide.
+[docs/](docs/) has a concepts reference, a scheduling policies guide, and
+[the C++ you need for these labs](docs/cpp_for_these_labs.md) — a short page
+for anyone whose C or C++ is rusty. The code stays close to C on purpose.
 
 ## What is on the machine
 

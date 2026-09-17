@@ -10,6 +10,8 @@
 //   pin_self_to_cpu()  keep the calling thread on one CPU
 //   sleep_until()      absolute clock_nanosleep, the basis of periodic tasks
 //   Mutex              pthread mutex with or without priority inheritance
+//   thread_cpu_ns()    CPU time this thread has used
+//   effective_rt_priority()  the priority the scheduler is using right now
 //   Stats              min / avg / max in microseconds
 //
 // Why not std::thread and std::mutex? std::thread has no way to choose a
@@ -31,6 +33,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string.h>  // strtok_r: POSIX, not in <cstring>
 #include <limits>
 
 namespace rt {
@@ -61,6 +64,14 @@ inline timespec now() {
 
 inline long long elapsed_ns(const timespec& since) { return diff_ns(now(), since); }
 inline double elapsed_ms(const timespec& since) { return elapsed_ns(since) / 1e6; }
+
+// CPU time used by the calling thread, as opposed to wall-clock time. Work
+// measured in CPU time really does take longer when the thread is preempted.
+inline long long thread_cpu_ns() {
+    timespec t{};
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t);
+    return static_cast<long long>(t.tv_sec) * kNsPerSec + t.tv_nsec;
+}
 
 // Sleep until an absolute CLOCK_MONOTONIC time. The deadline does not move if
 // we are woken early by a signal, so we simply sleep again.
@@ -124,6 +135,33 @@ inline void print_self_sched(const char* who) {
     pthread_getschedparam(pthread_self(), &policy, &sp);
     std::printf("%s: %s priority %d, CPU %d\n", who, policy_name(policy), sp.sched_priority,
                 sched_getcpu());
+}
+
+// The priority the scheduler is using for this thread right now, including a
+// boost from priority inheritance. pthread_getschedparam() reports only what
+// we asked for ourselves, so read field 18 of /proc/thread-self/stat: for a
+// real-time thread it holds -1 - effective_priority.
+inline int effective_rt_priority() {
+    FILE* f = std::fopen("/proc/thread-self/stat", "r");
+    if (f == nullptr) return -1;
+    char line[512];
+    char* got = std::fgets(line, sizeof(line), f);
+    std::fclose(f);
+    if (got == nullptr) return -1;
+
+    // Field 2 is the thread name in brackets and may contain spaces, so start
+    // after the last ')'. The next token is field 3.
+    char* rest = std::strrchr(line, ')');
+    if (rest == nullptr) return -1;
+    ++rest;
+
+    char* save = nullptr;  // strtok_r keeps its state here, so this is safe
+    char* token = strtok_r(rest, " ", &save);  // to call from any thread
+    for (int field = 3; token != nullptr; ++field) {
+        if (field == 18) return -std::atoi(token) - 1;
+        token = strtok_r(nullptr, " ", &save);
+    }
+    return -1;
 }
 
 inline int self_priority() {

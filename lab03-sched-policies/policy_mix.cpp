@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
     w[2].tag = 'F';
     w[2].policy = SCHED_FIFO;
     w[2].priority = prio;
-    for (auto& x : w) {
+    for (lab::Worker& x : w) {
         x.cpu = cpu;
         x.work_ns = work_ms * rt::kNsPerMs;
     }

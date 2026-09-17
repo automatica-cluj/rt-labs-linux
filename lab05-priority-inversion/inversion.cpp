@@ -26,13 +26,9 @@
 
 #include <semaphore.h>
 
-#include <algorithm>
 #include <atomic>
 #include <cstdio>
-#include <fstream>
-#include <iterator>
-#include <sstream>
-#include <string>
+#include <cstring>
 
 namespace {
 
@@ -62,31 +58,10 @@ struct Scenario {
     int low_effective_prio = -1;
 };
 
-// CPU time used by the calling thread. Work is measured in CPU time, not wall
-// time: if LOW is preempted, its critical section really does get longer.
-long long thread_cpu_ns() {
-    timespec t{};
-    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t);
-    return static_cast<long long>(t.tv_sec) * rt::kNsPerSec + t.tv_nsec;
-}
-
-// The priority the scheduler is using for this thread right now, including
-// any boost from priority inheritance. pthread_getschedparam() only reports
-// the priority we set ourselves, so read field 18 of /proc/thread-self/stat:
-// for a real-time task it holds -1 - effective_priority.
-int effective_rt_priority() {
-    std::ifstream f("/proc/thread-self/stat");
-    std::string line;
-    std::getline(f, line);
-    const auto close = line.rfind(')');  // the command name may contain spaces
-    if (close == std::string::npos) return -1;
-    std::istringstream rest(line.substr(close + 2));
-    std::string field;
-    for (int i = 3; i <= 18 && rest >> field; ++i) {
-        if (i == 18) return -std::stoi(field) - 1;
-    }
-    return -1;
-}
+// Work is measured in CPU time (rt::thread_cpu_ns), not wall-clock time: if
+// LOW is preempted, its critical section really does take longer. The
+// priority LOW is running at, boost included, comes from
+// rt::effective_rt_priority(). Both live in ../common/rt.hpp.
 
 void* low_task(void* arg) {
     auto* s = static_cast<Scenario*>(arg);
@@ -97,13 +72,13 @@ void* low_task(void* arg) {
     sem_post(&s->low_locked);
 
     // Critical section: needs cs_ns of CPU, however long that takes.
-    const long long start = thread_cpu_ns();
+    const long long start = rt::thread_cpu_ns();
     bool sampled = false;
     volatile unsigned long x = 0;
-    while (thread_cpu_ns() - start < s->cs_ns) {
+    while (rt::thread_cpu_ns() - start < s->cs_ns) {
         for (int i = 0; i < 1000; ++i) x += i;
         if (!sampled && s->high_waiting.load()) {
-            s->low_effective_prio = effective_rt_priority();
+            s->low_effective_prio = rt::effective_rt_priority();
             sampled = true;
         }
     }
@@ -132,9 +107,9 @@ void* medium_task(void* arg) {
     auto* s = static_cast<Scenario*>(arg);
     s->medium_cpu = sched_getcpu();
     s->medium_start = rt::now();
-    const long long start = thread_cpu_ns();
+    const long long start = rt::thread_cpu_ns();
     volatile unsigned long x = 0;
-    while (thread_cpu_ns() - start < s->medium_ns) {
+    while (rt::thread_cpu_ns() - start < s->medium_ns) {
         for (int i = 0; i < 1000; ++i) x += i;
     }
     s->medium_end = rt::now();
@@ -164,8 +139,9 @@ void start_or_die(pthread_t* t, void* (*fn)(void*), Scenario* s, int prio, int c
 }  // namespace
 
 int main(int argc, char** argv) {
-    const std::string protocol = argc > 1 ? argv[1] : "none";
-    if (protocol != "none" && protocol != "inherit") {
+    const char* protocol = argc > 1 ? argv[1] : "none";
+    const bool inherit = std::strcmp(protocol, "inherit") == 0;
+    if (!inherit && std::strcmp(protocol, "none") != 0) {
         std::fprintf(stderr, "usage: %s [none|inherit] [cpu] [medium_ms] [cs_ms]\n", argv[0]);
         return 2;
     }
@@ -175,7 +151,7 @@ int main(int argc, char** argv) {
 
     if (!rt::lock_memory()) return 1;
 
-    rt::Mutex mutex(protocol == "inherit" ? rt::Mutex::kInherit : rt::Mutex::kNone);
+    rt::Mutex mutex(inherit ? rt::Mutex::kInherit : rt::Mutex::kNone);
     Scenario s;
     s.mutex = &mutex;
     s.medium_ns = medium_ms * rt::kNsPerMs;
@@ -183,8 +159,8 @@ int main(int argc, char** argv) {
     sem_init(&s.low_locked, 0, 0);
     sem_init(&s.high_requesting, 0, 0);
 
-    std::printf("mutex protocol: %s\n", protocol == "inherit" ? "PTHREAD_PRIO_INHERIT"
-                                                               : "PTHREAD_PRIO_NONE");
+    std::printf("mutex protocol: %s\n",
+                inherit ? "PTHREAD_PRIO_INHERIT" : "PTHREAD_PRIO_NONE");
     if (cpu >= 0) {
         std::printf("all threads pinned to CPU %d\n", cpu);
     } else {
@@ -217,7 +193,8 @@ int main(int argc, char** argv) {
         const char* what;
         int cpu;
     };
-    Event events[] = {
+    const int kEvents = 6;
+    Event events[kEvents] = {
         {s.low_lock, "LOW    locks the mutex", s.low_cpu},
         {s.high_request, "HIGH   requests the mutex and blocks", s.high_cpu},
         {s.medium_start, "MEDIUM starts running", s.medium_cpu},
@@ -225,14 +202,24 @@ int main(int argc, char** argv) {
         {s.low_unlock, "LOW    unlocks", -1},
         {s.high_acquired, "HIGH   gets the mutex", -1},
     };
-    std::stable_sort(std::begin(events), std::end(events),
-                     [](const Event& a, const Event& b) { return rt::diff_ns(a.t, b.t) < 0; });
+    // Put the events in time order. Six entries, so a plain bubble sort.
+    for (int i = 0; i + 1 < kEvents; ++i) {
+        for (int j = 0; j + 1 < kEvents - i; ++j) {
+            if (rt::diff_ns(events[j + 1].t, events[j].t) < 0) {
+                const Event tmp = events[j];
+                events[j] = events[j + 1];
+                events[j + 1] = tmp;
+            }
+        }
+    }
+
     std::printf("timeline (ms since start)\n");
-    for (const Event& e : events) {
-        if (e.cpu >= 0) {
-            std::printf("  %7.1f  %-38s (CPU %d)\n", ms(e.t, s.t0), e.what, e.cpu);
+    for (int i = 0; i < kEvents; ++i) {
+        if (events[i].cpu >= 0) {
+            std::printf("  %7.1f  %-38s (CPU %d)\n", ms(events[i].t, s.t0), events[i].what,
+                        events[i].cpu);
         } else {
-            std::printf("  %7.1f  %s\n", ms(e.t, s.t0), e.what);
+            std::printf("  %7.1f  %s\n", ms(events[i].t, s.t0), events[i].what);
         }
     }
     if (s.low_effective_prio >= 0) {

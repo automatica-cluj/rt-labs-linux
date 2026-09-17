@@ -19,6 +19,10 @@ make
 Each program is one `.cpp` file. Read the file before you run it; the comment
 at the top says what it does and how to call it.
 
+If your C or C++ is rusty, read
+[../docs/cpp_for_these_labs.md](../docs/cpp_for_these_labs.md) first. It is one
+page and covers every C++ feature these labs use.
+
 ## 2. Clocks: `time_basics`
 
 ```
@@ -63,8 +67,10 @@ two things for later labs:
 cat measurements.txt
 ```
 
-The program collects everything in a `std::vector` first and writes the file
-afterwards. File I/O inside a timing loop would disturb what you measure.
+The program fills an array of `Measurement` structs first and writes the file
+afterwards. File I/O inside a timing loop would disturb what you measure. The
+random delays use a fixed seed, so two runs sleep for the same pattern and only
+the measured times differ.
 
 ## 5. Arguments and busy work: `busy_wait`
 

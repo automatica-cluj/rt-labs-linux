@@ -69,7 +69,7 @@ inline long long thread_cpu_ns() {
 // Thread body. No printf in here: output to a terminal can block and would
 // change the very scheduling we are trying to observe.
 inline void* worker_main(void* arg) {
-    auto* w = static_cast<Worker*>(arg);
+    Worker* w = static_cast<Worker*>(arg);
 
     sched_param sp{};
     pthread_getschedparam(pthread_self(), &w->got_policy, &sp);
@@ -128,7 +128,7 @@ inline void setup_main(int priority, int cpu) {
 inline void start_all(std::vector<Worker>& workers) {
     sem_t parked;
     sem_init(&parked, 0, 0);
-    for (auto& w : workers) {
+    for (Worker& w : workers) {
         w.parked = &parked;
         sem_init(&w.go, 0, 0);
         // Explicit scheduling attributes: the thread is real-time from its
@@ -144,29 +144,53 @@ inline void start_all(std::vector<Worker>& workers) {
     // Release. Main keeps the CPU until it blocks in pthread_join, so all
     // workers become runnable before any of them starts working.
     const timespec t0 = rt::now();
-    for (auto& w : workers) w.t0 = t0;
-    for (auto& w : workers) sem_post(&w.go);
-    for (auto& w : workers) pthread_join(w.thread, nullptr);
-    for (auto& w : workers) sem_destroy(&w.go);
+    for (Worker& w : workers) w.t0 = t0;
+    for (Worker& w : workers) sem_post(&w.go);
+    for (Worker& w : workers) pthread_join(w.thread, nullptr);
+    for (Worker& w : workers) sem_destroy(&w.go);
     sem_destroy(&parked);
 }
 
-inline std::string order_by(const std::vector<Worker>& workers, long long Worker::*key) {
-    std::vector<const Worker*> v;
-    for (const auto& w : workers) v.push_back(&w);
-    std::stable_sort(v.begin(), v.end(),
-                     [key](const Worker* a, const Worker* b) { return a->*key < b->*key; });
+// The worker tags in time order, for example "H M L". With use_finish the
+// order is by finish time, otherwise by the time each worker first ran.
+// The sort is a plain selection sort: there are only three workers.
+inline std::string order_by_time(const std::vector<Worker>& workers, bool use_finish) {
+    std::vector<int> order;
+    for (size_t i = 0; i < workers.size(); ++i) order.push_back(static_cast<int>(i));
+
+    for (size_t i = 0; i + 1 < order.size(); ++i) {
+        for (size_t j = i + 1; j < order.size(); ++j) {
+            const Worker& a = workers[order[i]];
+            const Worker& b = workers[order[j]];
+            const long long ta = use_finish ? a.finish_ns : a.first_run_ns;
+            const long long tb = use_finish ? b.finish_ns : b.first_run_ns;
+            if (tb < ta) {
+                const int tmp = order[i];
+                order[i] = order[j];
+                order[j] = tmp;
+            }
+        }
+    }
+
     std::string s;
-    for (const auto* w : v) {
-        if (!s.empty()) s += ' ';
-        s += w->tag;
+    for (size_t i = 0; i < order.size(); ++i) {
+        if (i > 0) s += ' ';
+        s += workers[order[i]].tag;
     }
     return s;
 }
 
+inline std::string start_order(const std::vector<Worker>& workers) {
+    return order_by_time(workers, false);
+}
+
+inline std::string finish_order(const std::vector<Worker>& workers) {
+    return order_by_time(workers, true);
+}
+
 inline int max_pieces(const std::vector<Worker>& workers) {
     int m = 0;
-    for (const auto& w : workers) m = std::max(m, w.npieces);
+    for (const Worker& w : workers) m = std::max(m, w.npieces);
     return m;
 }
 
@@ -174,8 +198,8 @@ inline int max_pieces(const std::vector<Worker>& workers) {
 // first and last piece of another worker. Pauses caused by tasks that are not
 // ours (kernel threads, the fair server, RT throttling) do not count.
 inline bool interleaved(const std::vector<Worker>& workers) {
-    for (const auto& a : workers) {
-        for (const auto& b : workers) {
+    for (const Worker& a : workers) {
+        for (const Worker& b : workers) {
             if (&a == &b) continue;
             for (int i = 0; i < b.npieces; ++i) {
                 if (b.pieces[i].start_ns > a.first_run_ns && b.pieces[i].start_ns < a.finish_ns) {
@@ -189,7 +213,7 @@ inline bool interleaved(const std::vector<Worker>& workers) {
 
 // Did the workers run at the same time on different CPUs?
 inline bool parallel(const std::vector<Worker>& workers) {
-    for (const auto& w : workers) {
+    for (const Worker& w : workers) {
         if (w.got_cpu != workers[0].got_cpu) return true;
     }
     return false;
@@ -206,7 +230,7 @@ inline void report(const std::vector<Worker>& workers) {
     std::printf("\n%-8s %-13s %-13s %4s %9s %9s %6s\n", "worker", "requested", "obtained", "cpu",
                 "first ms", "done ms", "pieces");
     bool mismatch = false;
-    for (const auto& w : workers) {
+    for (const Worker& w : workers) {
         char req[32], got[32];
         std::snprintf(req, sizeof req, "%s %d", short_policy(w.policy), w.priority);
         std::snprintf(got, sizeof got, "%s %d", short_policy(w.got_policy), w.got_priority);
@@ -220,7 +244,7 @@ inline void report(const std::vector<Worker>& workers) {
     // that ran in that slice, '*' means several of ours ran at the same time
     // (only possible on different CPUs), '.' means none of ours ran.
     long long end = 0;
-    for (const auto& w : workers) end = std::max(end, w.finish_ns);
+    for (const Worker& w : workers) end = std::max(end, w.finish_ns);
     const int cols = 64;
     const long long width = std::max(1LL, end / cols + 1);
     std::string strip(cols, '.');
@@ -228,7 +252,7 @@ inline void report(const std::vector<Worker>& workers) {
         const long long a = c * width, b = a + width;
         long long best = 0;
         int busy = 0;
-        for (const auto& w : workers) {
+        for (const Worker& w : workers) {
             long long run = 0;
             for (int i = 0; i < w.npieces; ++i) {
                 run += std::max(0LL, std::min(b, w.pieces[i].end_ns) -
@@ -243,8 +267,8 @@ inline void report(const std::vector<Worker>& workers) {
         if (busy > 1) strip[c] = '*';
     }
     std::printf("\ntimeline, one column = %.1f ms:\n  |%s|\n", width / 1e6, strip.c_str());
-    std::printf("start order:  %s\n", order_by(workers, &Worker::first_run_ns).c_str());
-    std::printf("finish order: %s\n", order_by(workers, &Worker::finish_ns).c_str());
+    std::printf("start order:  %s\n", start_order(workers).c_str());
+    std::printf("finish order: %s\n", finish_order(workers).c_str());
     std::printf("most pieces for one worker: %d\n", max_pieces(workers));
     std::printf("workers interleaved: %s\n", interleaved(workers) ? "yes" : "no");
     if (parallel(workers)) {
