@@ -1,0 +1,21 @@
+# Start a shell:   docker compose -f docker/compose.yaml run --rm lab
+# (or: make docker-shell from the repository root)
+
+services:
+  lab:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: rt-labs-debian:trixie
+    # The repository is mounted, so edits on the host are visible immediately
+    # and binaries built inside stay on the host.
+    volumes:
+      - ..:/workspace
+    working_dir: /workspace
+    # Same limits a student gets on the lab VM. No --privileged and no extra
+    # capabilities: RLIMIT_RTPRIO alone lets a normal user use SCHED_FIFO <= 80.
+    ulimits:
+      rtprio: 80
+      memlock: 268435456
+    stdin_open: true
+    tty: true

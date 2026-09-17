@@ -1,30 +1,26 @@
-# Compiled binaries
-exercise1
-exercise2
-exercise3
+# Build output. Every lab Makefile builds binaries next to the sources;
+# ignore extension-less files there and re-include the sources.
+lab*/*
+!lab*/*.cpp
+!lab*/*.hpp
+!lab*/*.h
+!lab*/*.sh
+!lab*/*.py
+!lab*/*.md
+!lab*/Makefile
+lab*/build/
 *.o
-*.out
 
-# Results
-results/*.txt
-results/*.png
-results/*.csv
+# Measurement results
+*.csv
+*.png
 
-# Keep directory structure
-!results/.gitkeep
-!exercises/.gitkeep
-!scripts/.gitkeep
-
-# Editor files
+# Editor and system files
 *.swp
-*.swo
 *~
 .vscode/
 .idea/
-
-# System files
 .DS_Store
-Thumbs.db
 
 # Claude Code files
 CLAUDE.md
