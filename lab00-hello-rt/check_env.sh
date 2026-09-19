@@ -46,7 +46,7 @@ echo "  kernel.sched_rt_runtime_us = $(cat /proc/sys/kernel/sched_rt_runtime_us)
 
 echo
 echo "Tools"
-for t in g++ make gdb cyclictest chrt stress-ng tmux htop; do
+for t in gcc make gdb cyclictest chrt stress-ng tmux htop; do
     if command -v "$t" >/dev/null 2>&1; then
         ok "$t"
     else

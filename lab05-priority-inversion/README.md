@@ -8,8 +8,8 @@ blocked, and then remove the problem with a priority inheritance mutex.
 Time: about 90 minutes. No sudo needed, except for the optional `trace-cmd`
 experiment.
 
-Prerequisites: lab 0 (`check_env.sh` all OK) and the `common/rt.hpp` helpers
-from lab 1.
+Prerequisites: lab 0 (`check_env.sh` all OK) and the `common/rt.h` helpers
+from lab 2.
 
 ---
 
@@ -36,13 +36,15 @@ priority 20, and HIGH runs. HIGH now waits at most for one critical section:
 
 On Linux you get this with one attribute:
 
-```cpp
+```c
 pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_INHERIT);
 ```
 
-`rt::Mutex(rt::Mutex::kInherit)` in `common/rt.hpp` does exactly that.
-`std::mutex` has no such option, which is one reason real-time C++ code uses
-pthread mutexes directly.
+`rt_mutex_init(&mutex, 1)` in `common/rt.h` does exactly that; with `0` you
+get a default pthread mutex, which has no priority inheritance. After the
+initialisation the program uses the normal `pthread_mutex_lock` and
+`pthread_mutex_unlock` calls, so the critical section is easy to find in the
+code.
 
 A real case: in 1997 the Mars Pathfinder lander kept resetting itself a few
 days after landing. A high-priority bus management task was blocked on a
@@ -58,9 +60,10 @@ cd rt-labs/lab05-priority-inversion
 make
 ```
 
-Read `inversion.cpp` now. The important parts:
+Read `inversion.c` now, starting with `low_task`, `high_task` and
+`medium_task`. The important parts:
 
-- `rt::start_thread()` creates each thread as `SCHED_FIFO` at its priority and
+- `rt_start_thread()` creates each thread as `SCHED_FIFO` at its priority and
   pinned to one CPU *before* it runs. If the priority is refused the program
   stops, instead of quietly running a meaningless experiment as `SCHED_OTHER`.
 - LOW and MEDIUM measure their work in **CPU time**

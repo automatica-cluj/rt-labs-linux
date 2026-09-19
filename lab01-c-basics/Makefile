@@ -1,17 +1,18 @@
-CXX      ?= g++
-CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra -pthread
-CXXFLAGS += $(if $(WERROR),-Werror)
+CC     = gcc
+CFLAGS ?= -std=c11 -O2 -Wall -Wextra -pthread
+CFLAGS += $(if $(WERROR),-Werror)
+LDLIBS += -lm
 
 PROGRAMS = time_basics threads file_io busy_wait scheduling statistics
 
 all: $(PROGRAMS)
 
-%: %.cpp
-	$(CXX) $(CXXFLAGS) -o $@ $<
+%: %.c
+	$(CC) $(CFLAGS) -o $@ $< $(LDLIBS)
 
 # Quick functional check used by 'make smoke' at the top level.
 smoke: all
-	./time_basics | grep -q 'std::chrono'
+	./time_basics | grep -q 'late by us'
 	./threads | grep -q 'sum of 0..2999999 = 4499998500000'
 	./file_io /tmp/lab01_smoke.txt | grep -q 'wrote 10'
 	test $$(grep -vc '^#' /tmp/lab01_smoke.txt) -eq 10

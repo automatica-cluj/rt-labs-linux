@@ -25,9 +25,11 @@ Two programs:
 | `periodic_task` | one periodic task, configurable period and computation time |
 | `control_app` | three tasks (sensor, controller, logger) with Rate Monotonic priorities |
 
-Both use the helpers in `../common/rt.hpp` (introduced in lab 2):
-`lock_memory()`, `set_self_sched()` / `start_thread()`, and an absolute
-`sleep_until()`. Read `periodic_task.cpp` first. It is short.
+Both are plain C and use the helpers in `../common/rt.h` (introduced in lab 2):
+`rt_lock_memory()`, `rt_set_self_sched()` / `rt_start_thread()`, and an
+absolute `rt_sleep_until()`. Read `periodic_task.c` first. It is short, and the
+loop reads top to bottom: wait for the release, measure the latency, do the
+work, check the deadline, compute the next release.
 
 ## 2. Terms used below
 
@@ -122,8 +124,10 @@ Compare the measured `max response` column with the predicted `R bound`.
 The lower-priority tasks have a larger release latency. That is not a fault:
 they are waiting for higher-priority jobs released at the same instant.
 
-The three tasks share data through `rt::Mutex(rt::Mutex::kInherit)`, a mutex
-with priority inheritance. Lab 5 shows why a plain mutex would be a problem.
+The three tasks share data through a pthread mutex created with
+`rt_mutex_init(&plant_lock, 1)`, that is, with priority inheritance. Each task
+holds it only long enough to copy a value in or out. Lab 5 shows why a plain
+mutex would be a problem.
 
 ## 5. Experiments
 
@@ -191,7 +195,7 @@ difference using the R-bound column.
 
 Start `./control_app 80 60` and press `Ctrl+C` after a few seconds. The
 statistics still make sense, because they are divided by the jobs that
-actually ran. Read how `sigaction` and `std::atomic<bool>` make this safe,
+actually ran. Read how `sigaction` and a `volatile sig_atomic_t` flag make this safe,
 and why the signal handler does nothing else.
 
 ## 6. Questions

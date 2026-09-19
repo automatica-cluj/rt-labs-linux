@@ -1,7 +1,7 @@
 # Lab 0 — Hello, real-time
 
 First contact with the lab machine. By the end you will have logged in, checked
-that your account can use real-time scheduling, built a small C++ program, and
+that your account can use real-time scheduling, built a small C program, and
 seen what a real-time priority does to a periodic task.
 
 Time: about 45 minutes. No sudo needed anywhere in this lab.
@@ -53,7 +53,7 @@ make
 
 The program locks its memory, switches to `SCHED_FIFO` priority 80, then wakes
 up every millisecond for 5 seconds and measures how late each wake-up was.
-Read `hello_rt.cpp` now, it is short and every step is commented.
+Read `hello_rt.c` now, it is short and every step is commented.
 
 Output from the lab machine, idle:
 
@@ -126,10 +126,10 @@ early.
 **E. Stretch: make the task do work**
 
 Real periodic tasks do not just wake up, they compute. Add about 300 µs of
-busy work to every iteration, right after the wake-up in `hello_rt.cpp`:
+busy work to every iteration, in `hello_rt.c`, right after the line that reads the clock into `now`:
 
-```cpp
-        timespec t0{};
+```c
+        struct timespec t0;
         clock_gettime(CLOCK_MONOTONIC, &t0);
         volatile double x = 1;
         do {
@@ -164,7 +164,7 @@ of the next lab.
 3. Why does the program call `mlockall()` before the loop? What could go
    wrong without it?
 4. The loop uses `clock_nanosleep` with `TIMER_ABSTIME` instead of
-   `std::this_thread::sleep_for(1ms)`. What would change over 5000 iterations
+   a relative sleep such as `usleep(1000)`. What would change over 5000 iterations
    with the relative version? (Hint: where is the next deadline computed from?)
 5. Experiment C failed with `EPERM`. Which limit enforces this and why does a
    shared machine want such a limit?

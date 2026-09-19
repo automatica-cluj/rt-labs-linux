@@ -1,12 +1,12 @@
-CXX      ?= g++
-CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra -pthread
-CXXFLAGS += $(if $(WERROR),-Werror)
+CC     = gcc
+CFLAGS ?= -std=c11 -O2 -Wall -Wextra -pthread
+CFLAGS += $(if $(WERROR),-Werror)
 CPPFLAGS += -I../common
 
 all: latency
 
-latency: latency.cpp ../common/rt.hpp
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ $<
+latency: latency.c ../common/rt.h
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $<
 
 # Quick functional check used by 'make smoke' at the top level.
 smoke: all

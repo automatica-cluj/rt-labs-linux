@@ -1,11 +1,11 @@
-CXX      ?= g++
-CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra -pthread
-CXXFLAGS += $(if $(WERROR),-Werror)
+CC     = gcc
+CFLAGS ?= -std=c11 -O2 -Wall -Wextra -pthread
+CFLAGS += $(if $(WERROR),-Werror)
 
 all: hello_rt
 
-hello_rt: hello_rt.cpp
-	$(CXX) $(CXXFLAGS) -o $@ $<
+hello_rt: hello_rt.c
+	$(CC) $(CFLAGS) -o $@ $<
 
 # Quick functional check used by 'make smoke' at the top level.
 smoke: all

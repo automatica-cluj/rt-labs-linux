@@ -36,8 +36,8 @@ cd rt-labs/lab06-deadlock
 make
 ```
 
-`deadlock.cpp` shows the problem and timeout-based detection. `lock_order.cpp`
-shows prevention. Both use the helpers in `../common/rt.hpp`.
+`deadlock.c` shows the problem and timeout-based detection. `lock_order.c`
+shows prevention. Both use the helpers in `../common/rt.h`.
 
 ## 3. Watch the deadlock
 
@@ -130,7 +130,7 @@ you use `CLOCK_MONOTONIC`, like every other timer in these labs.
 ```
 ./lock_order ordered
 ./lock_order trylock
-./lock_order scoped
+./lock_order address
 ./lock_order wrong
 ```
 
@@ -138,7 +138,7 @@ you use `CLOCK_MONOTONIC`, like every other timer in these labs.
 |---|---|---|
 | `ordered` | locks m1 then m2, the same global order as A | circular wait |
 | `trylock` | locks m2, *tries* m1; if busy, releases m2, sleeps 5 ms, retries | hold and wait |
-| `scoped` | `std::scoped_lock both(m2, m1);` | hold and wait (the library does the back-off) |
+| `address` | `lock_both(&m2, &m1)`: always locks the mutex with the lower address first | circular wait (the rule is the global order) |
 | `wrong` | locks m2 then m1 with plain locks | none: deadlock, watchdog, exit code 3 |
 
 Output of `./lock_order ordered` from the local Docker image (replace with
@@ -168,6 +168,13 @@ recovery.
 
 With `trylock` the result line also shows how many times B had to give up and
 retry (7 or 8 in the Docker image).
+
+`address` is `ordered` without having to remember the order: `lock_both()`
+compares the two pointers and locks the lower address first, so it does not
+matter in which order the caller names the mutexes. C++ has
+`std::scoped_lock(m2, m1)`, which takes several mutexes with a try-and-back-off
+algorithm and picks the order for you. C has nothing like it, so in C you pick
+one rule and every piece of code that takes both mutexes follows it.
 
 ## 6. Experiments
 
@@ -201,7 +208,7 @@ task's second lock:
 
 Run it ten times. Note which task detects the deadlock each time, and whether
 both ever time out. The two tasks still hold their first mutex for at least
-100 ms, so they almost always overlap. Now change `kHoldMs` in `deadlock.cpp`
+100 ms, so they almost always overlap. Now change `HOLD_MS` in `deadlock.c`
 to 1, rebuild and repeat with `./deadlock 150 60`. How often is there no
 deadlock at all? Programs with a latent deadlock often pass testing for exactly
 this reason: the unlucky interleaving is rare.
@@ -222,12 +229,12 @@ decides who runs, but it cannot make a blocked task runnable.
 ./lock_order wrong ; echo "exit code $?"
 ```
 
-Then open `lock_order.cpp` and find the single place you would change to fix
+Then open `lock_order.c` and find the single place you would change to fix
 the `wrong` mode.
 
 **E. Stretch: three tasks**
 
-Add a task C and a mutex m3 to `lock_order.cpp`:
+Add a task C and a mutex m3 to `lock_order.c`:
 
 - A locks m1 then m2
 - B locks m2 then m3
@@ -251,7 +258,7 @@ of the next lab.
 4. Why does the program use `CLOCK_MONOTONIC` for the lock deadline? What could
    happen with `CLOCK_REALTIME` on a machine that synchronises its clock?
 5. In `trylock` mode, could B retry forever? What is that situation called, and
-   why do the two tasks in `deadlock.cpp` use different back-off times (200 ms
+   why do the two tasks in `deadlock.c` use different back-off times (200 ms
    and 300 ms)?
 6. A global lock order is easy with two mutexes in one file. How would you keep
    it in a large program where locks are taken in different modules?

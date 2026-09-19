@@ -40,13 +40,13 @@ A task τi has period Ti, worst-case execution time Ci and deadline Di (= Ti her
 
 Periodic loop pattern, without drift:
 
-```cpp
-timespec next = rt::now();
+```c
+struct timespec next = rt_now();
 for (;;) {
-    rt::add_ns(next, period_ns);
-    rt::sleep_until(next);        // clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME)
+    next = rt_add_ns(next, period_ns);
+    rt_sleep_until(next);         /* clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME) */
     do_job();
-    if (rt::diff_ns(rt::now(), next) > period_ns) { /* overrun: count it, skip ahead */ }
+    if (rt_diff_ns(rt_now(), next) > period_ns) { /* overrun: count it, skip ahead */ }
 }
 ```
 
@@ -76,13 +76,13 @@ has no bound: **unbounded priority inversion** (Mars Pathfinder, 1997).
 
 - **Priority inheritance (PIP):** while L holds a lock that H waits for, L runs
   at H's priority. H's blocking time is then bounded by the critical sections
-  it has to wait for. `PTHREAD_PRIO_INHERIT`, or `rt::Mutex(rt::Mutex::kInherit)`.
+  it has to wait for. `PTHREAD_PRIO_INHERIT`, or `rt_mutex_init(&m, 1)`.
 - **Priority ceiling (PCP / PTHREAD_PRIO_PROTECT):** a lock carries the highest
   priority of any task that uses it. Whoever holds it runs at that priority.
   This also prevents deadlock between the locks involved.
 - On `PREEMPT_RT`, the kernel's own spinlocks become rt_mutexes with priority
   inheritance.
-- `std::mutex` has no priority inheritance.
+- A mutex created with default attributes has no priority inheritance.
 
 Blocking bound with PIP: Bi ≤ Σ over lower-priority tasks of their longest
 critical section on a lock that τi (or a higher-priority task) can also lock.
@@ -94,7 +94,7 @@ The Coffman conditions must all hold at once:
 | Condition | Break it by |
 |---|---|
 | Mutual exclusion | lock-free data structures, read-copy-update |
-| Hold and wait | acquire all locks at once (`std::scoped_lock`, try-lock and back off) |
+| Hold and wait | acquire all locks at once, or `pthread_mutex_trylock` and back off |
 | No preemption | timed locks that give up and release (`pthread_mutex_clocklock`) |
 | Circular wait | a global lock order: always lock m1 before m2 |
 
@@ -112,7 +112,7 @@ lock.
 | Lock-free | some thread always makes progress; one thread may retry forever |
 | Wait-free | every thread finishes in bounded steps (e.g. a single `fetch_add`) |
 
-- **CAS** (`compare_exchange_weak/strong`): "if the value is still what I read,
+- **CAS** (`atomic_compare_exchange_weak` / `_strong`): "if the value is still what I read,
   replace it", as one atomic step. On failure you get the current value and
   retry.
 - **ABA:** a thread reads A, gets preempted; others pop A, pop B and push A
@@ -121,13 +121,14 @@ lock.
   on every update), or safe memory reclamation so an address can't be reused
   while someone may still hold it (hazard pointers, epoch-based reclamation,
   RCU).
-- **Memory reclamation:** in a lock-free structure you may not `delete` a node
+- **Memory reclamation:** in a lock-free structure you may not `free` a node
   another thread might still be reading.
-- **`std::memory_order`** in `load(std::memory_order_relaxed)` is a hint to
-  the compiler about the synchronisation model. It is **not** the CPU's memory
+- **Memory order arguments.** `<stdatomic.h>` has `_explicit` variants such as
+  `atomic_load_explicit(&x, memory_order_relaxed)`. The order is a hint to the
+  compiler about the synchronisation model. It is **not** the CPU's memory
   ordering or cache behaviour. With GCC on x86-64 and arm64 the generated code
-  for load, store and `fetch_add` is the same for every value. Leave the
-  default unless you can measure a difference.
+  for load, store and `atomic_fetch_add` is the same for every value. Use the
+  plain forms (`atomic_load`, `atomic_store`), which pick the safest order.
 - Lock-free is not automatically faster. Under contention a CAS retry loop can
   spin, while a mutex sleeps. What it does remove is blocking on a
   lower-priority thread, which is why it matters for real-time work.

@@ -1,14 +1,15 @@
-CXX      ?= g++
-CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra -pthread
-CXXFLAGS += $(if $(WERROR),-Werror)
+CC     = gcc
+CFLAGS   ?= -std=c11 -O2 -Wall -Wextra -pthread
+CFLAGS   += $(if $(WERROR),-Werror)
 CPPFLAGS += -I../common
+LDLIBS   += -lm
 
 BINS = periodic_task control_app
 
 all: $(BINS)
 
-%: %.cpp ../common/rt.hpp
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ $<
+%: %.c ../common/rt.h
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $< $(LDLIBS)
 
 # Quick functional check used by 'make smoke' at the top level.
 smoke: all

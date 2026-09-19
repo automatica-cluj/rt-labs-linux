@@ -1,4 +1,4 @@
-# Lab 1 — C++ and POSIX basics for real-time programs
+# Lab 1 — C and POSIX basics for real-time programs
 
 The tools every later lab uses: high-resolution clocks, threads, storing
 measurements, command-line arguments, busy work, scheduling policies and the
@@ -11,17 +11,17 @@ Time: about 90 minutes. No sudo needed anywhere in this lab.
 ## 1. Build
 
 ```
-cd rt-labs/lab01-cpp-basics
+cd rt-labs/lab01-c-basics
 git pull
 make
 ```
 
-Each program is one `.cpp` file. Read the file before you run it; the comment
+Each program is one `.c` file. Read the file before you run it; the comment
 at the top says what it does and how to call it.
 
-If your C or C++ is rusty, read
-[../docs/cpp_for_these_labs.md](../docs/cpp_for_these_labs.md) first. It is one
-page and covers every C++ feature these labs use.
+If your C is rusty, read
+[../docs/c_for_these_labs.md](../docs/c_for_these_labs.md) first. It is one
+page and covers every piece of C these labs use.
 
 ## 2. Clocks: `time_basics`
 
@@ -51,14 +51,15 @@ lab machine the lateness is a few tens of microseconds.
 ./threads
 ```
 
-The same work runs once with `pthread_create` and once with `std::thread`.
-Each thread gets its own `Work` struct, so no locking is needed. Remember
-two things for later labs:
+Three workers are started with `pthread_create` and collected with
+`pthread_join`. Each thread gets its own `struct work`, so no locking is
+needed. Remember two things for later labs:
 
 - pthread functions return an error number. They do not set `errno`, so
   `perror()` after them prints the wrong message. Use `strerror(rc)`.
-- `std::thread` cannot be given a scheduling policy before it starts. That is
-  why real-time threads in these labs are created with pthreads.
+- The second argument of `pthread_create` is `NULL` here: default attributes.
+  From lab 3 on, that argument carries the scheduling policy, the priority and
+  the CPU, so a thread is real-time from its first instruction.
 
 ## 4. Measurements to a file: `file_io`
 
@@ -67,7 +68,7 @@ two things for later labs:
 cat measurements.txt
 ```
 
-The program fills an array of `Measurement` structs first and writes the file
+The program fills an array of `struct measurement` first and writes the file
 afterwards. File I/O inside a timing loop would disturb what you measure. The
 random delays use a fixed seed, so two runs sleep for the same pattern and only
 the measured times differ.
@@ -125,15 +126,17 @@ half-open, `[from, to)`, so no sample is counted twice.
 (`man 2 prctl`, `PR_SET_TIMERSLACK`). Run `chrt -f 50 ./time_basics`: the
 same program at a real-time priority. What changed in part 3?
 
-**C. Break the struct pattern.** In `threads.cpp`, make all three workers
-write into the same `Work` object. Run it several times. Is the result always
-the same? Now build with `make CXXFLAGS="-std=c++17 -O1 -g -pthread -fsanitize=thread" threads -B`
-and run it again.
+**C. Break the struct pattern.** In `threads.c`, make all three workers add
+into the same `struct work` (pass `&work[0]` to every thread and use
+`w->sum += i` in the loop). Run it several times. Is the result always the
+same? Now build with
+`make -B threads CFLAGS="-std=c11 -O1 -g -pthread -fsanitize=thread"` and run
+it again.
 
-**D. Percentiles.** Change the spike probability in `statistics.cpp` from
+**D. Percentiles.** Change the spike probability in `statistics.c` from
 0.5 % to 2 %. Which of min, mean, p90, p99, p99.9 and max change, and why?
 
-**E. Stretch: a CSV from a real measurement.** Change `file_io.cpp` to take
+**E. Stretch: a CSV from a real measurement.** Change `file_io.c` to take
 1000 samples of a 1 ms `nanosleep` and store the lateness. Keep the output
 format, because Lab 2 plots files like this.
 

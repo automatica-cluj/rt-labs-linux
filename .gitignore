@@ -1,8 +1,7 @@
 # Build output. Every lab Makefile builds binaries next to the sources;
 # ignore extension-less files there and re-include the sources.
 lab*/*
-!lab*/*.cpp
-!lab*/*.hpp
+!lab*/*.c
 !lab*/*.h
 !lab*/*.sh
 !lab*/*.py

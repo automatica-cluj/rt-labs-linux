@@ -17,7 +17,7 @@ cd rt-labs/lab03-sched-policies
 make
 ```
 
-This builds three programs. They share `timeline.hpp` and `../common/rt.hpp`.
+This builds three programs. They share `timeline.h` and `../common/rt.h`.
 
 | Program | What it shows |
 |---|---|
@@ -34,8 +34,9 @@ All three use the same method:
 3. Each program prints a table and a timeline strip. In the strip, one column
    is a slice of time and the letter is the worker that had the CPU.
 
-Read `timeline.hpp` first. Then read `start_thread()` and `lock_memory()` in
-`../common/rt.hpp`.
+Read `timeline.h` first. Its top half is the real-time part, and the bottom
+half only sorts and prints. Then read `rt_start_thread_policy()` and
+`rt_lock_memory()` in `../common/rt.h`.
 
 ## 2. Why everything is pinned to one CPU
 
@@ -260,12 +261,12 @@ of the next lab.
    In experiment B (`fifo`) they were released A, B, C and ran A, B, C. What
    decides the order in each case?
 2. Why does `main` run at one priority *above* the workers? Change
-   `setup_main(prio + 1, cpu)` in `policy_mix.cpp` to `setup_main(0, cpu)`,
+   `setup_main(prio + 1, cpu)` in `policy_mix.c` to `setup_main(0, cpu)`,
    rebuild, and explain what changes.
 3. In experiment C `F` finished before `R`, although `R` started first and has
    the same priority. Explain it using the words *time slice* and *queue*.
 4. When is `SCHED_RR` a better choice than `SCHED_FIFO`, and when is it worse?
-5. `start_thread()` in `rt.hpp` calls
+5. `rt_start_thread_policy()` in `rt.h` calls
    `pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED)`. What happens
    to the policy and priority in the attributes if you remove that line? Try
    it: the `obtained` column will tell you.

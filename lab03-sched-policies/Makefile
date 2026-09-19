@@ -1,14 +1,14 @@
-CXX      ?= g++
-CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra -pthread
-CXXFLAGS += $(if $(WERROR),-Werror)
+CC     = gcc
+CFLAGS   ?= -std=c11 -O2 -Wall -Wextra -pthread
+CFLAGS   += $(if $(WERROR),-Werror)
 CPPFLAGS += -I../common
 
 PROGS := fifo_order same_priority policy_mix
 
 all: $(PROGS)
 
-%: %.cpp timeline.hpp ../common/rt.hpp
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ $<
+%: %.c ../common/rt.h timeline.h
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $<
 
 # Quick functional check used by 'make smoke' at the top level.
 smoke: all

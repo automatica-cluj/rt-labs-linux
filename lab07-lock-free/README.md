@@ -2,9 +2,14 @@
 
 In this lab you build and break a lock-free stack. You measure what it costs
 compared with a mutex. You watch the ABA problem happen step by step and then
-fix it. Finally you compare a mutex, a priority-inheritance mutex and
-`std::atomic` in the one situation real-time programs care about: a
+fix it. Finally you compare a mutex, a priority-inheritance mutex and an
+atomic variable in the one situation real-time programs care about: a
 high-priority task sharing data with a low-priority one.
+
+The programs are plain C11. The only new tool is `<stdatomic.h>`: a variable
+declared `_Atomic(...)` (or `atomic_long`, `atomic_bool`) may be shared between
+threads and is touched only through `atomic_load`, `atomic_store`,
+`atomic_fetch_add` and `atomic_compare_exchange_weak/strong`.
 
 Time: about 2 hours. No sudo needed anywhere in this lab.
 
@@ -20,8 +25,8 @@ matter what the other threads do:
 | | guarantee | example |
 |---|---|---|
 | blocking | none: a thread holding a lock can stop everybody else | mutex |
-| lock-free | some thread always makes progress; one thread may retry forever | Treiber stack, `fetch_add` loop |
-| wait-free | every thread finishes in a bounded number of its own steps | `std::atomic::fetch_add` itself, per-thread ring buffer |
+| lock-free | some thread always makes progress; one thread may retry forever | Treiber stack, any compare-and-swap retry loop |
+| wait-free | every thread finishes in a bounded number of its own steps | a single `atomic_fetch_add`, per-thread ring buffer |
 
 Lock-free does not mean "fast" and it does not mean "bounded". A
 low-priority thread cannot block a high-priority thread, which is the part
@@ -32,22 +37,29 @@ has no upper limit on its retries.
 
 All lock-free code in this lab rests on one atomic instruction:
 
-```cpp
-// Atomically: if (head == expected) { head = desired; return true; }
-//             else { expected = head; return false; }
-head.compare_exchange_weak(expected, desired);
+```c
+/* In one indivisible step:
+ *   if (head == expected) { head = desired;  return true;  }
+ *   else                  { expected = head; return false; }   */
+atomic_compare_exchange_weak(&head, &expected, desired);
 ```
+
+A failed compare-and-swap (CAS) is not a thread being blocked. It fails
+because another thread's CAS succeeded in between, so somebody made progress.
+That is the definition of lock-free.
 
 The `_weak` form may fail spuriously. That is fine inside a retry loop and
 can be slightly cheaper. `_strong` fails only when the values differ.
 
-### What `std::memory_order` is (and is not)
+### The `_explicit` variants and memory order
 
-`load(std::memory_order_relaxed)` and friends take a hint about how *consistent*
-concurrent reads need to be. It is not a CPU memory model and it is not a
-"barrier". With GCC on x86-64 and arm64, `load`, `store` and `fetch_add`
-produce the same instructions whatever order you pass. The default,
-`memory_order_seq_cst`, is always correct. Use the defaults unless a profiler
+Every atomic function has a second form, such as
+`atomic_load_explicit(&x, memory_order_relaxed)`, that takes a *memory order*.
+It is a hint to the compiler about how much synchronisation the program
+needs. It is not the CPU's memory ordering and it is not a "barrier". With GCC
+on x86-64 and arm64, load, store and fetch-add compile to the same
+instructions whatever order you pass. The plain forms used in this lab mean
+`memory_order_seq_cst`, which is always correct. Use them unless a profiler
 tells you otherwise.
 
 ### The ABA problem
@@ -82,7 +94,7 @@ cd rt-labs/lab07-lock-free
 make
 ```
 
-The Makefile links `-latomic`. A 16-byte `std::atomic` (pointer plus tag)
+The Makefile links `-latomic`. A 16-byte `_Atomic` struct (pointer plus tag)
 compiles to a call into libatomic, which takes a small lock unless the CPU
 has a double-width compare-and-swap. On x86-64 you can add `-mcx16` to allow
 the `CMPXCHG16B` instruction. `aba_demo` prints what it got on your machine.
@@ -94,7 +106,10 @@ the `CMPXCHG16B` instruction. `aba_demo` prints what it got on your machine.
 ./lockfree_stack 1          # one thread: no contention
 ```
 
-Read `lockfree_stack.cpp` first. `push` and `pop` are about ten lines each.
+Read `lockfree_stack.c` first. `lf_push` and `lf_pop` are about ten lines each,
+and the three steps (read the head, prepare, compare-and-swap) are marked.
+All nodes come from one array allocated before the threads start: no `malloc`
+in the time-critical path, and no node is freed while a thread may still read it.
 Every thread pushes and pops at the same time. Afterwards the program checks
 that every value was seen exactly once, then repeats the workload on a stack
 protected by a mutex.
@@ -103,12 +118,12 @@ Output from the local Docker image (replace with lab-machine output):
 
 ```
 Treiber stack: 4 threads, 200000 push+pop pairs each
-std::atomic<Node*> is lock-free on this machine: yes
+_Atomic(struct node *) is lock-free on this machine: yes
 
-lock-free  : correct, 0.099 s, 16.17 M ops/s, 631642 CAS retries in pop
-mutex      : correct, 0.049 s, 32.59 M ops/s
+lock-free  : correct, 0.112 s, 14.31 M ops/s, 838732 CAS retries in pop
+mutex      : correct, 0.037 s, 43.60 M ops/s
 
-faster here: mutex (2.0x)
+faster here: mutex (3.0x)
 Throughput is an average. Neither number says anything about the worst case.
 ```
 
@@ -129,7 +144,7 @@ with a plain pointer CAS and once with a tagged pointer.
 Output from the local Docker image (replace with lab-machine output):
 
 ```
-std::atomic<(pointer, tag)> is lock-free here: no (uses a lock)
+_Atomic(struct tagged) is lock-free here: no (uses a lock)
 
 === plain pointer CAS ===
 initial stack: A(1) -> B(2) -> C(3)
@@ -158,7 +173,11 @@ tagged CAS rejected stale head: the tag changed while thread 1 was away.
 In this demo "free" only marks the node, so the program can print what went
 wrong. In real code the memory goes back to `malloc`. See experiment C.
 
-## 5. Mutex, PI mutex and std::atomic
+The tagged head is `struct tagged { struct node *ptr; unsigned long tag; }`.
+A CAS on a struct compares all of its bytes, so the struct must have no
+padding (two 8-byte fields) and is always zeroed before use.
+
+## 5. Mutex, PI mutex and atomic
 
 ```
 ./sync_perf                 # 4 threads, 2 s per method, CPU from your uid
@@ -179,22 +198,22 @@ Output from the local Docker image (replace with lab-machine output):
 
 ```
 Test 1: throughput, 4 SCHED_OTHER threads, 2 s per method
-  mutex          39.94 M increments/s  count correct
+  mutex          40.12 M increments/s  count correct
   PI mutex        0.07 M increments/s  count correct
-  std::atomic    93.02 M increments/s  count correct
-  highest throughput here: std::atomic
+  atomic         82.62 M increments/s  count correct
+  highest throughput here: atomic
 
 Test 2: mixed priorities on CPU 6, 2 s per method
   high: FIFO 50, 5 ms period, 50 us update
   medium: FIFO 30, 23 ms period, 8 ms computation (no counter)
   low: FIFO 10, 7 ms period, 3 ms update
-  mutex        high response over 376 samples: min 109 us, avg 1710 us, max 9816 us
-  PI mutex     high response over 401 samples: min 55 us, avg 710 us, max 3050 us
-  std::atomic  high response over 401 samples: min 50 us, avg 890 us, max 1987 us
+  mutex        high response over 370 samples: min 132 us, avg 1447 us, max 9388 us
+  PI mutex     high response over 401 samples: min 107 us, avg 867 us, max 3014 us
+  atomic       high response over 401 samples: min 50 us, avg 429 us, max 1516 us
 
 What the numbers say on this run:
-  lowest worst-case response for high: std::atomic (1987 us)
-  plain mutex worst case is 3.2x the PI mutex worst case: priority
+  lowest worst-case response for high: atomic (1516 us)
+  plain mutex worst case is 3.1x the PI mutex worst case: priority
   inversion through the medium thread was observed.
 ```
 
@@ -210,8 +229,8 @@ Things to notice:
 - **With the plain mutex in test 2, high got fewer than 400 samples.** Some
   periods were so late that the thread skipped them (read the overrun policy
   in `periodic_worker`).
-- **With `std::atomic`, low does its 3 ms of work on a private value and
-  publishes it with one `fetch_add`.** High never waits for low at all. Its
+- **With the atomic counter, low does its 3 ms of work on its own and
+  publishes it with one `atomic_fetch_add`.** High never waits for low at all. Its
   worst case is left with only its own wake-up latency, because no thread on
   that CPU has a higher priority.
 
@@ -234,13 +253,12 @@ limited to two CPUs of time on the shared machine.
 
 **B. Break the stack on purpose**
 
-In `LockFreeStack::pop`, replace the loop with a load followed by a plain
-`store`:
+In `lf_pop`, replace the loop with a load followed by a plain store:
 
-```cpp
-Node* old_head = head_.load();
-if (old_head == nullptr) return nullptr;
-head_.store(old_head->next);
+```c
+struct node *old_head = atomic_load(&s->head);
+if (old_head == NULL) return NULL;
+atomic_store(&s->head, old_head->next);
 return old_head;
 ```
 
@@ -254,7 +272,7 @@ make asan
 ./build/aba_demo_asan delete
 ```
 
-This time node B is really `delete`d, as it would be in a naive
+This time node B is really passed to `free()`, as it would be in a naive
 implementation. ASan stops at the first read of freed memory. Read the three
 stack traces: where it was read, who freed it, who allocated it. Without ASan
 this program would carry on silently with corrupted data, which is why the
@@ -268,8 +286,9 @@ make tsan
 ./build/sync_perf_tsan 2 1
 ```
 
-Both should run without `WARNING: ThreadSanitizer`. Now make the `plain_`
-counter in `sync_perf.cpp` be incremented *outside* the lock in `update()`,
+Both should run without `WARNING: ThreadSanitizer`. Now make the `plain`
+counter in `sync_perf.c` be incremented *outside* the lock in
+`counter_update()`,
 rebuild with `make tsan`, and run again. Programs run 5 to 15 times slower
 under TSan. Do not compare any timings from these builds.
 
@@ -293,10 +312,11 @@ of the next lab.
 3. Is the Treiber stack lock-free or wait-free? Describe an execution in
    which one thread never completes its `pop`.
 4. The PI mutex had the worst throughput and one of the best worst cases.
-   When would you choose it over `std::atomic` anyway? (Hint: think about
+   When would you choose it over an atomic anyway? (Hint: think about
    updates that touch more than one value.)
-5. What does `std::memory_order_relaxed` promise, and why did choosing it not
-   make the programs faster?
+5. The programs use the plain atomic functions, not the `_explicit` ones with
+   `memory_order_relaxed`. What would `relaxed` promise, and why would it not
+   make these programs faster on this machine?
 6. Hazard pointers and epoch-based reclamation both *delay* freeing memory.
    What does that delay cost a real-time system, and when?
 

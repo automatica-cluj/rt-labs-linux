@@ -73,7 +73,7 @@ more reason to keep real-time tasks short and blocking.
 **CPUs.** Scheduling decisions are per CPU. On an 8-CPU machine, three threads
 at different priorities usually run at the same time on three CPUs, and
 priority has no visible effect. To study priorities, pin the threads to one
-CPU. The labs pick that CPU from your user id (`rt::default_cpu()`) so
+CPU. The labs pick that CPU from your user id (`rt_default_cpu()`) so
 students don't all share CPU 0. Your account also has a CPU quota of two CPUs'
 worth of time (`CPUQuota=200%`).
 
@@ -82,9 +82,10 @@ worth of time (`CPUQuota=200%`).
 The labs use the pthread calls. They act on one thread and return an error
 number instead of setting `errno`.
 
-```cpp
+```c
 // Change the calling thread.
-sched_param sp{};
+struct sched_param sp;
+memset(&sp, 0, sizeof(sp));
 sp.sched_priority = 50;
 int rc = pthread_setschedparam(pthread_self(), SCHED_FIFO, &sp);
 if (rc != 0) fprintf(stderr, "pthread_setschedparam: %s\n", strerror(rc));
@@ -98,12 +99,13 @@ To start a thread that is real-time from its first instruction, set the
 attributes *and* `PTHREAD_EXPLICIT_SCHED`. Without that line the attributes
 are silently ignored and the thread inherits the creator's policy:
 
-```cpp
+```c
 pthread_attr_t attr;
 pthread_attr_init(&attr);
 pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);  // essential
 pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
-sched_param sp{};
+struct sched_param sp;
+memset(&sp, 0, sizeof(sp));
 sp.sched_priority = 60;
 pthread_attr_setschedparam(&attr, &sp);
 
@@ -116,12 +118,13 @@ int rc = pthread_create(&tid, &attr, fn, arg);   // EPERM if 60 > ulimit -r
 pthread_attr_destroy(&attr);
 ```
 
-`rt::start_thread()` in `common/rt.hpp` does exactly this.
+`rt_start_thread()` in `common/rt.h` does exactly this.
 
 `sched_setscheduler(pid, ...)` is the older process-level call. On Linux it
 also changes a single thread, which makes it easy to misuse from threaded
-code. `std::thread` cannot set a policy before the thread starts, and
-`std::mutex` has no priority inheritance. Use pthreads for both.
+code. Prefer the pthread calls above. Also remember that a mutex created with
+default attributes has no priority inheritance; ask for it with
+`PTHREAD_PRIO_INHERIT` (`rt_mutex_init(&m, 1)` in `common/rt.h`).
 
 ## Command line
 

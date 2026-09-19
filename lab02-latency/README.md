@@ -16,9 +16,11 @@ git pull
 make
 ```
 
-Read `latency.cpp`, and read `../common/rt.hpp` once. From this lab on, the
+Read `latency.c`, and read `../common/rt.h` once. From this lab on, the
 steps from Lab 0 (`mlockall`, `pthread_setschedparam`, absolute
-`clock_nanosleep`) live in that header so each program can focus on its topic.
+`clock_nanosleep`) live in that header as `rt_lock_memory()`,
+`rt_set_self_sched()` and `rt_sleep_until()`, so each program can focus on its
+topic.
 
 ## 2. Run
 

@@ -2,8 +2,8 @@
 
 Lab material for the real-time systems course (SSATR / IAISC / ICAF). The
 labs run on a shared Linux machine with a `PREEMPT_RT` kernel (Debian 13,
-Linux 6.12). Each lab is a directory with its own README, C++17 source code
-and a Makefile.
+Linux 6.12). Each lab is a directory with its own README, plain C source code and
+a Makefile.
 
 ## Connecting
 
@@ -29,7 +29,7 @@ Run `git pull` here before each lab to get new material.
 | Lab | Topic | Week |
 |---|---|---|
 | [lab00-hello-rt](lab00-hello-rt/) | Log in, check the environment, a first periodic real-time task | 0 |
-| [lab01-cpp-basics](lab01-cpp-basics/) | Clocks, threads, data files, arguments, busy work, policies, statistics | 0 |
+| [lab01-c-basics](lab01-c-basics/) | Clocks, threads, data files, arguments, busy work, policies, statistics | 0 |
 | [lab02-latency](lab02-latency/) | Latency and jitter, load, absolute vs relative sleep, cyclictest | 1 |
 | [lab03-sched-policies](lab03-sched-policies/) | SCHED_OTHER, SCHED_FIFO, SCHED_RR on one CPU, RT throttling | 1 |
 | [lab04-periodic-tasks](lab04-periodic-tasks/) | Periodic tasks, deadline misses, rate-monotonic control application | 1 |
@@ -37,14 +37,16 @@ Run `git pull` here before each lab to get new material.
 | [lab06-deadlock](lab06-deadlock/) | Deadlock, detection by timeout, prevention by lock ordering | 3 |
 | [lab07-lock-free](lab07-lock-free/) | Lock-free stack, the ABA problem, locks vs atomics under priorities | 4 |
 
-`common/rt.hpp` holds the few real-time building blocks used from Lab 2 on:
+`common/rt.h` holds the few real-time building blocks used from Lab 2 on:
 memory locking, creating real-time threads, CPU pinning, absolute sleeps and
 priority-inheritance mutexes. Read it once. Lab 0 shows the same steps written
 out in full.
 
 [docs/](docs/) has a concepts reference, a scheduling policies guide, and
-[the C++ you need for these labs](docs/cpp_for_these_labs.md) — a short page
-for anyone whose C or C++ is rusty. The code stays close to C on purpose.
+[the C you need for these labs](docs/c_for_these_labs.md), a short page for
+anyone whose C is rusty. The code is plain C11 and kept simple on purpose: the
+subject is real-time behaviour, and every real-time call the labs use is a C
+function.
 
 ## What is on the machine
 
