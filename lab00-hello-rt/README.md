@@ -8,6 +8,7 @@ Time: about 45 minutes. No sudo needed anywhere in this lab.
 
 Theory behind this lab (concept pages, in Romanian):
 [Ce înseamnă timp real](https://github.com/automatica-cluj/rt-concepts/blob/main/00-what-is-real-time.md),
+[Ce este un sistem de operare de timp real](https://github.com/automatica-cluj/rt-concepts/blob/main/01-what-is-an-rtos.md),
 [Latență și jitter](https://github.com/automatica-cluj/rt-concepts/blob/main/1-time/latency-and-jitter.md).
 
 ---
