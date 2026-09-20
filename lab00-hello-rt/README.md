@@ -26,7 +26,7 @@ identification changed, the machine was rebuilt since you last connected. Run
 ## 2. Get the labs
 
 ```
-git clone https://github.com/automatica-cluj/ssatr-iaisc-icaf-2025-labs-v2.git rt-labs
+git clone https://github.com/automatica-cluj/rt-labs-linux.git rt-labs
 cd rt-labs/lab00-hello-rt
 ```
 

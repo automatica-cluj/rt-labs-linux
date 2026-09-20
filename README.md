@@ -18,7 +18,7 @@ the host key changed, the machine has been rebuilt. Run
 Once logged in:
 
 ```
-git clone https://github.com/automatica-cluj/ssatr-iaisc-icaf-2025-labs-v2.git rt-labs
+git clone https://github.com/automatica-cluj/rt-labs-linux.git rt-labs
 cd rt-labs
 ```
 
