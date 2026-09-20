@@ -42,6 +42,10 @@ memory locking, creating real-time threads, CPU pinning, absolute sleeps and
 priority-inheritance mutexes. Read it once. Lab 0 shows the same steps written
 out in full.
 
+The theory behind the labs, in Romanian, is in a separate repository shared
+with the ESP32-C3 lab track: [rt-concepts](https://github.com/automatica-cluj/rt-concepts).
+Each lab guide lists the pages to read before the session.
+
 [docs/](docs/) has a concepts reference, a scheduling policies guide, and
 [the C you need for these labs](docs/c_for_these_labs.md), a short page for
 anyone whose C is rusty. The code is plain C11 and kept simple on purpose: the

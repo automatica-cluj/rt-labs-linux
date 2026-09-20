@@ -5,6 +5,10 @@ detect it with a timed lock, and then prevent it in three different ways.
 
 Time: about 90 minutes. No sudo needed anywhere in this lab.
 
+Theory behind this lab (concept pages, in Romanian):
+[Excludere mutuală](https://github.com/automatica-cluj/rt-concepts/blob/main/5-shared-resources/mutual-exclusion.md),
+[Deadlock](https://github.com/automatica-cluj/rt-concepts/blob/main/5-shared-resources/deadlock.md).
+
 ---
 
 ## 1. Background

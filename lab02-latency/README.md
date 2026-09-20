@@ -6,6 +6,11 @@ your tool against `cyclictest`.
 
 Time: about 90 minutes. No sudo needed anywhere in this lab.
 
+Theory behind this lab (concept pages, in Romanian):
+[Ceasuri și rezoluție](https://github.com/automatica-cluj/rt-concepts/blob/main/1-time/clocks-and-resolution.md),
+[Latență și jitter](https://github.com/automatica-cluj/rt-concepts/blob/main/1-time/latency-and-jitter.md),
+[Eliberare periodică](https://github.com/automatica-cluj/rt-concepts/blob/main/1-time/periodic-release.md).
+
 ---
 
 ## 1. Build

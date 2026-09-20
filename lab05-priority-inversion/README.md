@@ -11,6 +11,10 @@ experiment.
 Prerequisites: lab 0 (`check_env.sh` all OK) and the `common/rt.h` helpers
 from lab 2.
 
+Theory behind this lab (concept pages, in Romanian):
+[Excludere mutuală](https://github.com/automatica-cluj/rt-concepts/blob/main/5-shared-resources/mutual-exclusion.md),
+[Inversiunea de prioritate](https://github.com/automatica-cluj/rt-concepts/blob/main/5-shared-resources/priority-inversion.md).
+
 ---
 
 ## 1. Background

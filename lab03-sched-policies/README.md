@@ -8,6 +8,11 @@ a CPU forever.
 
 Time: about 90 minutes. No sudo needed anywhere in this lab.
 
+Theory behind this lab (concept pages, in Romanian):
+[Taskuri și stări](https://github.com/automatica-cluj/rt-concepts/blob/main/2-scheduling/tasks-and-states.md),
+[Preempțiune cu priorități fixe](https://github.com/automatica-cluj/rt-concepts/blob/main/2-scheduling/fixed-priority-preemption.md),
+[Înfometare și watchdog](https://github.com/automatica-cluj/rt-concepts/blob/main/2-scheduling/starvation-and-watchdogs.md).
+
 ---
 
 ## 1. Build

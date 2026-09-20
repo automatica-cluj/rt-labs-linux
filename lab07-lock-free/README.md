@@ -13,6 +13,11 @@ threads and is touched only through `atomic_load`, `atomic_store`,
 
 Time: about 2 hours. No sudo needed anywhere in this lab.
 
+Theory behind this lab (concept pages, in Romanian):
+[Condiții de cursă](https://github.com/automatica-cluj/rt-concepts/blob/main/5-shared-resources/race-conditions.md),
+[Garanții de progres](https://github.com/automatica-cluj/rt-concepts/blob/main/6-lock-free/progress-guarantees.md),
+[Compară-și-schimbă și problema ABA](https://github.com/automatica-cluj/rt-concepts/blob/main/6-lock-free/compare-and-swap-aba.md).
+
 ---
 
 ## 1. Background

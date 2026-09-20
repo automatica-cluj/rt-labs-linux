@@ -6,6 +6,9 @@ statistics that describe latency. Six short programs, one idea each.
 
 Time: about 90 minutes. No sudo needed anywhere in this lab.
 
+Theory behind this lab (concept pages, in Romanian):
+[Ceasuri și rezoluție](https://github.com/automatica-cluj/rt-concepts/blob/main/1-time/clocks-and-resolution.md).
+
 ---
 
 ## 1. Build

@@ -8,6 +8,14 @@ schedulability theory.
 
 Time: about 90 minutes. No sudo needed anywhere in this lab.
 
+Theory behind this lab (concept pages, in Romanian):
+[Eliberare periodică](https://github.com/automatica-cluj/rt-concepts/blob/main/1-time/periodic-release.md),
+[Modelul de task](https://github.com/automatica-cluj/rt-concepts/blob/main/3-analysis/task-model.md),
+[WCET](https://github.com/automatica-cluj/rt-concepts/blob/main/3-analysis/wcet.md),
+[Rate Monotonic](https://github.com/automatica-cluj/rt-concepts/blob/main/3-analysis/rate-monotonic.md),
+[Analiza timpului de răspuns](https://github.com/automatica-cluj/rt-concepts/blob/main/3-analysis/response-time-analysis.md),
+[Supraîncărcare](https://github.com/automatica-cluj/rt-concepts/blob/main/3-analysis/overload.md).
+
 ---
 
 ## 1. Get the code and build
